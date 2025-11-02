@@ -17,6 +17,9 @@ WiFiMulti wifiMulti;
 #define DATA_PIN  23 
 #define CS_PIN    15 
 
+// HARDWARE SPI
+MD_Parola P(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
+
 // MQTT
 #include <MQTT.h>
 #include "data.h"
@@ -28,12 +31,11 @@ unsigned long tiempoAnterior = 0;
 
 // CUANDO RECIBA MENSAJE MQTT
 void MensajeMQTT(String &topic, String &payload) {
-  // EL TOPIC
-  Serial.print("Topic: "); 
-  Serial.print(topic); 
-  // EL MENSAJE
-  Serial.print(" Mensaje: "); 
-  Serial.println(payload); 
+  payload.trim(); 
+  int n = payload.toInt(); 
+  Serial.print("Topic: "); Serial.print(topic); 
+  Serial.print(" Mensaje: "); Serial.print(payload); 
+  setMessage(n); 
 }
 
 //CONECTAR 
@@ -62,9 +64,33 @@ void conectar() {
   clienteMQTT.subscribe("Entrada/01"); 
 }
 
+// MANDAR EL MENSAJE 
+void setMessage(int n) {
+  static char msg[40]; 
+  if (n <= 0) snprintf(msg, sizeof(msg), "0 LUGARES"); 
+  else if (n == 1) snprintf(msg, sizeof(msg), "1 LUGAR DISP."); 
+  else snprintf(msg, sizeof(msg), "%d LUGARES DISP.", n); 
+
+  P.displayClear(); 
+  P.displayReset(); 
+  P.displayText(
+    msg, 
+    PA_CENTER, 
+    50, 
+    0, 
+    PA_SCROLL_LEFT, 
+    PA_SCROLL_LEFT
+  );
+}
+
 //SETUP MQTT
 void setup() {
   Serial.begin(115200);
+
+  // Inicializar Matriz
+  P.begin(); 
+  P.setIntensity(2);
+  setMessage(0); // Si jala la matriz o no
 
   wifiMulti.addAP(ssid_1, password_1); 
   
@@ -81,5 +107,8 @@ void loop() {
   clienteMQTT.loop();
   if(!clienteMQTT.connected()){
     conectar();
+  }
+  if (P.displayAnimate()) {
+    P.displayReset(); 
   }
 }
